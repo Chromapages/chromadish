@@ -1,0 +1,5 @@
+{
+  "name": "ChromaDish",
+  "description": "An AI-powered tool to generate professional food mockup images. Upload a photo of a food product, provide a prompt with your desired changes, and generate stunning visuals for social media, menus, or apps.",
+  "requestFramePermissions": []
+}
