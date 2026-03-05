@@ -21,7 +21,7 @@ services:
         sync: false
 
   # Frontend Static Site
-  - type: static
+  - type: static_site
     name: chromadish-frontend
     env: static
     buildCommand: npm install && npm run build
