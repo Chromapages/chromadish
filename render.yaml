@@ -12,10 +12,12 @@ services:
       - key: GEMINI_API_KEY
         sync: false
 
-static_sites:
-  - name: chromadish-frontend
+  # Frontend (Vite React Static Site)
+  - type: web
+    name: chromadish-frontend
+    env: static
     buildCommand: npm install && npm run build
-    staticPublishDir: dist
+    staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
         fromService:
