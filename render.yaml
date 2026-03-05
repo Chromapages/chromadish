@@ -1,5 +1,5 @@
 services:
-  # Backend API
+  # Backend API (Express + Gemini)
   - type: web
     name: chromadish-backend
     env: node
@@ -10,14 +10,6 @@ services:
       - key: NODE_VERSION
         value: 20
       - key: GEMINI_API_KEY
-        sync: false
-      - key: SUPABASE_URL
-        fromProject: chromadish-backend # or set manually
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
-      - key: VITE_SUPABASE_URL
-        sync: false
-      - key: VITE_SUPABASE_ANON_KEY
         sync: false
 
 static_sites:

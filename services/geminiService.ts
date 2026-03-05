@@ -169,7 +169,8 @@ A single, rich paragraph describing the visual style, lighting, surface, and bac
 
 
 // @ts-ignore
-const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:3005';
+const _rawApiUrl = import.meta.env?.VITE_API_URL || 'http://localhost:3005';
+const API_URL = _rawApiUrl.startsWith('http') ? _rawApiUrl : `https://${_rawApiUrl}`;
 
 /**
  * Frontend entry point for image generation.
