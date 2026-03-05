@@ -1,0 +1,18 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "module": "ESNext",
+        "moduleResolution": "Node",
+        "outDir": "dist-server",
+        "noEmit": false,
+        "allowImportingTsExtensions": false,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true
+    },
+    "include": [
+        "server/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}

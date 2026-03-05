@@ -7,9 +7,10 @@ interface BottomSheetProps {
     onClose: () => void;
     title: string;
     children: React.ReactNode;
+    showOnDesktop?: boolean;
 }
 
-const BottomSheet: React.FC<BottomSheetProps> = ({ isOpen, onClose, title, children }) => {
+const BottomSheet: React.FC<BottomSheetProps> = ({ isOpen, onClose, title, children, showOnDesktop = false }) => {
     const [isVisible, setIsVisible] = useState(isOpen);
 
     useEffect(() => {
@@ -20,7 +21,7 @@ const BottomSheet: React.FC<BottomSheetProps> = ({ isOpen, onClose, title, child
     if (!isVisible && !isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end md:hidden">
+        <div className={cn("fixed inset-0 z-50 flex flex-col justify-end", !showOnDesktop && "md:hidden")}>
             {/* Backdrop */}
             <div
                 className={cn(

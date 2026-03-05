@@ -1,7 +1,15 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { generateFoodMockup, MockupConfig } from './services/geminiService';
-import { fileToBase64, processImageForGemini } from './utils/fileUtils';
-import { Sparkles, MessageSquare, Zap, Target, Palette, Box } from 'lucide-react';
+import React from 'react';
+import {
+  Sparkles,
+  MessageSquare,
+  Zap,
+  Target,
+  Palette,
+  Box,
+  Download,
+  Grid,
+  Layers
+} from 'lucide-react';
 
 // UI Components
 import AppShell from './components/layout/AppShell';
@@ -15,186 +23,183 @@ import MobileBottomNav from './components/layout/MobileBottomNav';
 import BottomSheet from './components/ui/BottomSheet';
 import BrandKitPicker from './components/ui/BrandKitPicker';
 import StrictnessSlider from './components/ui/StrictnessSlider';
+import ExportModal from './components/ui/ExportModal';
+import ImageStitcher from './components/ui/ImageStitcher';
+import MediaGalleryModal from './components/ui/MediaGalleryModal';
+
+// Custom Hooks
+import { useMediaState, PERSPECTIVE_OPTIONS, SETTING_OPTIONS, PLATING_OPTIONS } from './hooks/useMediaState';
+import { useGenerationFlow } from './hooks/useGenerationFlow';
 
 import { BRAND_KITS, SHOT_RECIPES } from './constants/presets';
 
-const PERSPECTIVE_OPTIONS = [
-  {
-    label: 'The Menu Standard',
-    value: 'Top-down flat lay photography, 90-degree angle directly overhead, centered composition, even soft lighting, no depth of field, sharp focus from edge to edge, isolated on surface.',
-    description: 'Best for: Menu grids, printed menus, ingredients.'
-  },
-  {
-    label: 'The Hero Shot',
-    value: 'Straight-on eye-level view, 0-degree angle, camera placed at table height, showcasing vertical layers and height, shallow depth of field, blurry background (bokeh), heroic stature.',
-    description: 'Best for: Burgers, sandwiches, stacked pancakes.'
-  },
-  {
-    label: "The Diner's View",
-    value: '45-degree isometric perspective, natural diner\'s point of view sitting at a table, medium depth of field, focus on the front face of the food, inviting and accessible composition.',
-    description: 'Best for: General website headers, social media.'
-  },
-  {
-    label: 'The Crave Close-Up',
-    value: 'Macro close-up photography, 100mm lens style, tight framing on the most appetizing texture, extreme shallow depth of field, focus on details like droplets or steam, mouth-watering aesthetic.',
-    description: 'Best for: Ads, highlighting texture, glaze, detail.'
-  },
-  {
-    label: 'The Lifestyle Spread',
-    value: 'Wide angle lifestyle table setting, food placed in context with blurred dining environment in background, napkins and cutlery visible, natural window lighting, candid dining atmosphere.',
-    description: 'Best for: Brand storytelling, "About Us" sections.'
-  },
-  {
-    label: 'The Packaging Pop',
-    value: 'Dynamic product shot, slightly low angle, high contrast commercial lighting, vibrant colors, food styling emphasizes packaging and portability, clean modern background, high energy.',
-    description: 'Best for: Fast food promos, delivery apps.'
-  },
-];
-
-const SETTING_OPTIONS = [
-  { label: 'Rustic Wood', value: 'on a rustic dark wooden bakery board' },
-  { label: 'Sand Beach', value: 'on a tropical beach background with warm sand' },
-  { label: 'Marble Deck', value: 'on a clean polished marble kitchen counter' },
-  { label: 'Minimalist', value: 'against a clean, minimalist solid cream backdrop' },
-  { label: 'Cafe Bokeh', value: 'in a bright, modern cafe with a soft blurred background' },
-  { label: 'Fine Dining', value: 'on a white tablecloth in a dimly lit fine dining restaurant' },
-];
-
-const PLATING_OPTIONS = [
-  { label: 'On Plate', value: 'served on a clean professional ceramic plate' },
-  { label: 'No Plate', value: 'placed directly on the surface' },
-];
-
-type AppStatus = 'idle' | 'ready' | 'generating' | 'success' | 'error';
-
 const App: React.FC = () => {
-  // Assets & Inputs
-  const [sourceFile, setSourceFile] = useState<File | null>(null);
-  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
-  const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
-
-  // Phase 1 Config
-  const [perspective, setPerspective] = useState<string>(PERSPECTIVE_OPTIONS[1].value);
-  const [setting, setSetting] = useState<string>(SETTING_OPTIONS[0].value);
-  const [plating, setPlating] = useState<string>(PLATING_OPTIONS[0].value);
-  const [instructions, setInstructions] = useState<string>('');
-
-  // Phase 2 Config
-  const [selectedBrandKit, setSelectedBrandKit] = useState<string>(BRAND_KITS[0].id);
-  const [selectedShotRecipe, setSelectedShotRecipe] = useState<string>(SHOT_RECIPES[0].id);
-  const [strictness, setStrictness] = useState<number>(50);
-
-  // App State
-  const [status, setStatus] = useState<AppStatus>('idle');
-  const [error, setError] = useState<string | null>(null);
-
-  // Mobile Nav State
-  const [activeMobileTab, setActiveMobileTab] = useState<string | null>(null);
+  const media = useMediaState();
+  const generation = useGenerationFlow();
 
   const handleFileSelect = (file: File) => {
-    if (file.size > 10 * 1024 * 1024) {
-      setError('Image too large (>10MB)');
-      setStatus('error');
-      return;
-    }
-    setSourceFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setSourceUrl(reader.result as string);
-      setGeneratedUrl(null);
-      setStatus('ready');
-      setError(null);
-    };
-    reader.readAsDataURL(file);
+    media.handleFileSelect(
+      file,
+      () => {
+        generation.setGeneratedUrl(null);
+        generation.setStatus('ready');
+        generation.setError(null);
+      },
+      (msg) => {
+        generation.setError(msg);
+        generation.setStatus('error');
+      }
+    );
+  };
+
+  const handleGallerySelect = (asset: { public_url: string }) => {
+    media.handleGallerySelect(asset, () => {
+      generation.setGeneratedUrl(null);
+      generation.setStatus('ready');
+      generation.setError(null);
+    });
   };
 
   const handleClear = () => {
-    setSourceFile(null);
-    setSourceUrl(null);
-    setGeneratedUrl(null);
-    setStatus('idle');
-    setError(null);
+    media.handleClear();
+    generation.resetFlow();
   };
 
-  const handleGenerate = async () => {
-    if (!sourceFile) return;
+  const handleMultiFileSelect = (files: File[]) => {
+    media.handleMultiFileSelect(
+      files,
+      () => {
+        generation.setGeneratedUrl(null);
+        generation.setStatus('ready');
+        generation.setError(null);
+      },
+      (msg) => generation.setError(msg)
+    );
+  };
 
-    setStatus('generating');
-    setError(null);
+  const handleStitch = async (layout: 'horizontal' | 'vertical' | 'grid', spacing: number) => {
+    return generation.handleStitch(media.sourceUrls, layout, spacing, {
+      perspective: media.perspective,
+      plating: media.plating,
+      setting: media.setting,
+      instructions: media.instructions,
+      selectedBrandKit: media.selectedBrandKit,
+      selectedShotRecipe: media.selectedShotRecipe,
+      strictness: media.strictness
+    });
+  };
 
-    try {
-      const { base64, mimeType } = await processImageForGemini(sourceFile);
-
-      const brandKit = BRAND_KITS.find(k => k.id === selectedBrandKit);
-      const recipe = SHOT_RECIPES.find(r => r.id === selectedShotRecipe);
-
-      const config: MockupConfig = {
-        prompt: [perspective, plating, setting, instructions].filter(Boolean).join(', '),
-        brandKitPrompt: brandKit?.promptFragment,
-        shotRecipePrompt: recipe?.promptFragment,
-        strictness: strictness,
-      };
-
-      const resultBase64 = await generateFoodMockup(base64, mimeType, config);
-      const resultUrl = `data:image/png;base64,${resultBase64}`;
-
-      setGeneratedUrl(resultUrl);
-      setStatus('success');
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Generation failed');
-      setStatus('error');
-    }
+  const generate = () => {
+    generation.handleGenerate({
+      sourceFile: media.sourceFile,
+      sourceUrl: media.sourceUrl,
+      perspective: media.perspective,
+      plating: media.plating,
+      setting: media.setting,
+      instructions: media.instructions,
+      selectedBrandKit: media.selectedBrandKit,
+      selectedShotRecipe: media.selectedShotRecipe,
+      strictness: media.strictness,
+      maskData: media.maskData,
+      isInpaintingMode: media.isInpaintingMode
+    });
   };
 
   const sidebarContent = (
     <div className="space-y-4 pb-20">
-      <SidebarSection title="Source" description="Upload a product photo" icon={<Box size={14} />}>
-        <UploadCard
-          imageUrl={sourceUrl}
-          onFileSelect={handleFileSelect}
-          onClear={handleClear}
-          isLoading={status === 'generating'}
-        />
-      </SidebarSection>
+      <div className="flex gap-2 p-1 bg-neutral-900/50 rounded-xl">
+        <button
+          onClick={() => media.isMultiImageMode && media.toggleMultiImageMode()}
+          className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${!media.isMultiImageMode
+            ? 'bg-emerald-500 text-neutral-950'
+            : 'text-neutral-400 hover:text-neutral-200'
+            }`}
+        >
+          Single
+        </button>
+        <button
+          onClick={() => !media.isMultiImageMode && media.toggleMultiImageMode()}
+          className={`flex-1 py-2 px-3 flex items-center justify-center gap-1 rounded-lg text-xs font-bold transition-all ${media.isMultiImageMode
+            ? 'bg-emerald-500 text-neutral-950'
+            : 'text-neutral-400 hover:text-neutral-200'
+            }`}
+        >
+          <Layers size={12} />
+          Panoramic
+        </button>
+      </div>
+
+      {media.isMultiImageMode ? (
+        <SidebarSection title="Multi-Image" description="Upload up to 6 images" icon={<Grid size={14} />}>
+          <UploadCard
+            imageUrl={null}
+            onFileSelect={() => { }}
+            onClear={handleClear}
+            isLoading={generation.status === 'generating'}
+            multiple
+            onMultipleSelect={handleMultiFileSelect}
+            onBrowseGallery={() => media.setShowMediaGallery(true)}
+          />
+
+          {media.sourceUrls.length >= 2 && (
+            <button
+              onClick={() => media.setShowPanoramicSheet(true)}
+              className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs rounded-xl transition-all"
+            >
+              <Grid size={14} className="inline mr-2" />
+              Create Panoramic
+            </button>
+          )}
+        </SidebarSection>
+      ) : (
+        <SidebarSection title="Source" description="Upload or choose from gallery" icon={<Box size={14} />}>
+          <UploadCard
+            imageUrl={media.sourceUrl}
+            onFileSelect={handleFileSelect}
+            onClear={handleClear}
+            onBrowseGallery={() => media.setShowMediaGallery(true)}
+            isLoading={generation.status === 'generating'}
+          />
+        </SidebarSection>
+      )}
 
       <SidebarSection title="Brand Kit" description="Apply consistent visual identity" icon={<Palette size={14} />}>
-        <BrandKitPicker value={selectedBrandKit} onChange={setSelectedBrandKit} />
+        <BrandKitPicker value={media.selectedBrandKit} onChange={media.setSelectedBrandKit} />
       </SidebarSection>
 
       <SidebarSection title="Setting" description="The surface for your product" icon={<Box size={14} />}>
         <OptionGrid
           options={SETTING_OPTIONS}
-          value={setting}
-          onChange={setSetting}
+          value={media.setting}
+          onChange={media.setSetting}
         />
       </SidebarSection>
 
       <SidebarSection title="Plating" description="Serve on a dish or direct on surface" icon={<Target size={14} />}>
         <SegmentedControl
           options={PLATING_OPTIONS}
-          value={plating}
-          onChange={setPlating}
+          value={media.plating}
+          onChange={media.setPlating}
         />
       </SidebarSection>
 
       <SidebarSection title="Shot Recipe" description="Predefined composition presets" icon={<Target size={14} />}>
         <OptionGrid
           options={SHOT_RECIPES.map(r => ({ label: r.name, value: r.id, description: r.description }))}
-          value={selectedShotRecipe}
+          value={media.selectedShotRecipe}
           onChange={(id) => {
-            setSelectedShotRecipe(id);
+            media.setSelectedShotRecipe(id);
             const r = SHOT_RECIPES.find(recipe => recipe.id === id);
             if (r) {
               const p = PERSPECTIVE_OPTIONS.find(opt => opt.value.includes(r.defaultPerspective) || opt.label.toLowerCase().includes(r.defaultPerspective));
-              if (p) setPerspective(p.value);
+              if (p) media.setPerspective(p.value);
             }
           }}
         />
       </SidebarSection>
 
       <SidebarSection title="Fidelity" description="Control AI adherence to instructions">
-        <StrictnessSlider value={strictness} onChange={setStrictness} />
+        <StrictnessSlider value={media.strictness} onChange={media.setStrictness} />
       </SidebarSection>
 
       <SidebarSection title="Perspective" description="Camera angle for your product">
@@ -202,22 +207,36 @@ const App: React.FC = () => {
           <div className="space-y-2">
             <OptionGrid
               options={PERSPECTIVE_OPTIONS}
-              value={perspective}
-              onChange={setPerspective}
+              value={media.perspective}
+              onChange={media.setPerspective}
             />
           </div>
         </div>
       </SidebarSection>
 
+      <SidebarSection title="Magic Eraser" description="Brush over areas to modify" icon={<Sparkles size={14} className="text-emerald-400" />}>
+        <div className="flex items-center justify-between p-3 rounded-xl bg-black/40 border border-white/5">
+          <div className="flex flex-col">
+            <span className="text-xs font-bold text-neutral-200">Magic Brush</span>
+            <span className="text-[10px] text-neutral-500 font-medium">{media.isInpaintingMode ? 'Drawing enabled' : 'Toggle to edit'}</span>
+          </div>
+          <button
+            onClick={() => media.setIsInpaintingMode(!media.isInpaintingMode)}
+            className={`w-10 h-6 rounded-full transition-all relative ${media.isInpaintingMode ? 'bg-emerald-500' : 'bg-neutral-800'}`}
+          >
+            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${media.isInpaintingMode ? 'left-5' : 'left-1'}`} />
+          </button>
+        </div>
+      </SidebarSection>
+
       <SidebarSection title="Refinement" description="Add specific details or mood" icon={<MessageSquare size={14} />}>
         <textarea
-          value={instructions}
-          onChange={(e) => setInstructions(e.target.value)}
-          placeholder="e.g. dramatic lighting, steam rising..."
+          value={media.instructions}
+          onChange={(e) => media.setInstructions(e.target.value)}
+          placeholder={media.isInpaintingMode ? "Describe what to add/change in the masked area..." : "e.g. dramatic lighting, steam rising..."}
           className="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-xs text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 min-h-[80px] resize-none"
         />
       </SidebarSection>
-
     </div>
   );
 
@@ -234,6 +253,16 @@ const App: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-4">
+        {(generation.generatedUrl || generation.stitchedUrl) && (
+          <button
+            onClick={() => media.setShowExportModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 rounded-lg border border-emerald-500/30 transition-colors"
+          >
+            <Download size={14} className="text-emerald-400" />
+            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Export</span>
+          </button>
+        )}
+
         <div className="flex items-center gap-1.5 px-3 py-1 bg-white/5 rounded-full border border-white/10">
           <Zap size={12} className="text-emerald-400 fill-emerald-400" />
           <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Premium Plan</span>
@@ -246,140 +275,172 @@ const App: React.FC = () => {
   );
 
   return (
-    <AppShell
-      topBar={topBarContent}
-      sidebar={sidebarContent}
-      canvas={
-        <CanvasStage
-          sourceImageUrl={sourceUrl}
-          generatedImageUrl={generatedUrl}
-          isLoading={status === 'generating'}
-          onUploadClick={() => document.querySelector<HTMLInputElement>('input[type="file"]')?.click()}
-        />
-      }
-      actionBar={
-        <BottomActionBar
-          onGenerate={handleGenerate}
-          isLoading={status === 'generating'}
-          disabled={!sourceUrl}
-          error={error}
-          statusText={
-            status === 'idle' ? 'Upload content to start' :
-              status === 'ready' ? 'Ready to generate' :
-                status === 'generating' ? 'AI is painting...' :
-                  status === 'success' ? 'Generation complete' :
-                    'Ready to retry'
-          }
-        />
-      }
-      mobileNav={
-        <MobileBottomNav
-          activeTab={activeMobileTab || ''}
-          onTabSelect={(id) => setActiveMobileTab(activeMobileTab === id ? null : id)}
-          items={[
-            { id: 'source', label: 'Source', icon: <Box size={20} /> },
-            { id: 'style', label: 'Style', icon: <Palette size={20} /> },
-            { id: 'shot', label: 'Shot', icon: <Target size={20} /> },
-            { id: 'refine', label: 'Refine', icon: <MessageSquare size={20} /> },
-          ]}
-        />
-      }
-      bottomSheet={
-        <BottomSheet
-          isOpen={!!activeMobileTab}
-          onClose={() => setActiveMobileTab(null)}
-          title={
-            activeMobileTab === 'source' ? 'Source Image' :
-              activeMobileTab === 'style' ? 'Brand & Atmosphere' :
-                activeMobileTab === 'shot' ? 'Camera & Composition' :
-                  'Refinement'
-          }
-        >
-          {activeMobileTab === 'source' && (
-            <div className="space-y-4">
-              <p className="text-sm text-neutral-400">Upload and manage your product image.</p>
-              <UploadCard
-                imageUrl={sourceUrl}
-                onFileSelect={handleFileSelect}
-                onClear={handleClear}
-                isLoading={status === 'generating'}
-              />
-            </div>
-          )}
+    <>
+      <AppShell
+        topBar={topBarContent}
+        sidebar={sidebarContent}
+        canvas={
+          <CanvasStage
+            sourceImageUrl={media.sourceUrl}
+            generatedImageUrl={generation.generatedUrl}
+            isLoading={generation.status === 'generating'}
+            onUploadClick={() => document.querySelector<HTMLInputElement>('input[type="file"]')?.click()}
+            isInpaintingMode={media.isInpaintingMode}
+            onMaskChange={media.setMaskData}
+          />
+        }
+        actionBar={
+          <BottomActionBar
+            onGenerate={generate}
+            isLoading={generation.status === 'generating'}
+            disabled={!media.sourceUrl}
+            statusText={
+              generation.status === 'idle' ? 'Upload content to start' :
+                generation.status === 'ready' ? 'Ready to generate' :
+                  generation.status === 'generating' ? 'AI is painting...' :
+                    generation.status === 'success' ? 'Generation complete' :
+                      'Ready to retry'
+            }
+          />
+        }
+        mobileNav={
+          <MobileBottomNav
+            activeTab={media.activeMobileTab || ''}
+            onTabSelect={(id) => media.setActiveMobileTab(media.activeMobileTab === id ? null : id)}
+            items={[
+              { id: 'source', label: 'Source', icon: <Box size={20} /> },
+              { id: 'style', label: 'Style', icon: <Palette size={20} /> },
+              { id: 'shot', label: 'Shot', icon: <Target size={20} /> },
+              { id: 'refine', label: 'Refine', icon: <MessageSquare size={20} /> },
+            ]}
+          />
+        }
+        bottomSheet={
+          <BottomSheet
+            isOpen={!!media.activeMobileTab}
+            onClose={() => media.setActiveMobileTab(null)}
+            title={
+              media.activeMobileTab === 'source' ? 'Source Image' :
+                media.activeMobileTab === 'style' ? 'Brand & Atmosphere' :
+                  media.activeMobileTab === 'shot' ? 'Camera & Composition' :
+                    'Refinement'
+            }
+          >
+            {media.activeMobileTab === 'source' && (
+              <div className="space-y-4">
+                <p className="text-sm text-neutral-400">Upload and manage your product image.</p>
+                <UploadCard
+                  imageUrl={media.sourceUrl}
+                  onFileSelect={handleFileSelect}
+                  onClear={handleClear}
+                  onBrowseGallery={() => media.setShowMediaGallery(true)}
+                  isLoading={generation.status === 'generating'}
+                />
+              </div>
+            )}
 
-          {activeMobileTab === 'style' && (
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Brand Identity</span>
-                <BrandKitPicker value={selectedBrandKit} onChange={setSelectedBrandKit} />
+            {media.activeMobileTab === 'style' && (
+              <div className="space-y-8">
+                <div className="space-y-3">
+                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Brand Identity</span>
+                  <BrandKitPicker value={media.selectedBrandKit} onChange={media.setSelectedBrandKit} />
+                </div>
+                <div className="space-y-3">
+                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Setting</span>
+                  <OptionGrid
+                    options={SETTING_OPTIONS}
+                    value={media.setting}
+                    onChange={media.setSetting}
+                  />
+                </div>
               </div>
-              <div className="space-y-3">
-                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Setting</span>
-                <OptionGrid
-                  options={SETTING_OPTIONS}
-                  value={setting}
-                  onChange={setSetting}
-                />
-              </div>
-            </div>
-          )}
+            )}
 
-          {activeMobileTab === 'shot' && (
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Perspective</span>
-                <OptionGrid
-                  options={PERSPECTIVE_OPTIONS}
-                  value={perspective}
-                  onChange={setPerspective}
-                />
+            {media.activeMobileTab === 'shot' && (
+              <div className="space-y-8">
+                <div className="space-y-3">
+                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Perspective</span>
+                  <OptionGrid
+                    options={PERSPECTIVE_OPTIONS}
+                    value={media.perspective}
+                    onChange={media.setPerspective}
+                  />
+                </div>
+                <div className="space-y-3">
+                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Plating</span>
+                  <SegmentedControl
+                    options={PLATING_OPTIONS}
+                    value={media.plating}
+                    onChange={media.setPlating}
+                  />
+                </div>
+                <div className="space-y-3">
+                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Shot Recipe</span>
+                  <OptionGrid
+                    options={SHOT_RECIPES.map(r => ({ label: r.name, value: r.id, description: r.description }))}
+                    value={media.selectedShotRecipe}
+                    onChange={(id) => {
+                      media.setSelectedShotRecipe(id);
+                      const r = SHOT_RECIPES.find(recipe => recipe.id === id);
+                      if (r) {
+                        const p = PERSPECTIVE_OPTIONS.find(opt => opt.value.includes(r.defaultPerspective) || opt.label.toLowerCase().includes(r.defaultPerspective));
+                        if (p) media.setPerspective(p.value);
+                      }
+                    }}
+                  />
+                </div>
               </div>
-              <div className="space-y-3">
-                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Plating</span>
-                <SegmentedControl
-                  options={PLATING_OPTIONS}
-                  value={plating}
-                  onChange={setPlating}
-                />
-              </div>
-              <div className="space-y-3">
-                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Shot Recipe</span>
-                <OptionGrid
-                  options={SHOT_RECIPES.map(r => ({ label: r.name, value: r.id, description: r.description }))}
-                  value={selectedShotRecipe}
-                  onChange={(id) => {
-                    setSelectedShotRecipe(id);
-                    const r = SHOT_RECIPES.find(recipe => recipe.id === id);
-                    if (r) {
-                      const p = PERSPECTIVE_OPTIONS.find(opt => opt.value.includes(r.defaultPerspective) || opt.label.toLowerCase().includes(r.defaultPerspective));
-                      if (p) setPerspective(p.value);
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          )}
+            )}
 
-          {activeMobileTab === 'refine' && (
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Fidelity Control</span>
-                <StrictnessSlider value={strictness} onChange={setStrictness} />
+            {media.activeMobileTab === 'refine' && (
+              <div className="space-y-8">
+                <div className="space-y-3">
+                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Fidelity Control</span>
+                  <StrictnessSlider value={media.strictness} onChange={media.setStrictness} />
+                </div>
+                <div className="space-y-3">
+                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Custom Instructions</span>
+                  <textarea
+                    value={media.instructions}
+                    onChange={(e) => media.setInstructions(e.target.value)}
+                    placeholder="e.g. dramatic lighting, steam rising..."
+                    className="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 min-h-[120px] resize-none"
+                  />
+                </div>
               </div>
-              <div className="space-y-3">
-                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Custom Instructions</span>
-                <textarea
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  placeholder="e.g. dramatic lighting, steam rising..."
-                  className="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 min-h-[120px] resize-none"
-                />
-              </div>
-            </div>
-          )}
-        </BottomSheet>
-      }
-    />
+            )}
+          </BottomSheet>
+        }
+      />
+
+      <ExportModal
+        isOpen={media.showExportModal}
+        onClose={() => media.setShowExportModal(false)}
+        imageUrl={generation.generatedUrl || generation.stitchedUrl}
+        filename="chromadish-export"
+      />
+
+      <BottomSheet
+        isOpen={media.showPanoramicSheet}
+        onClose={() => media.setShowPanoramicSheet(false)}
+        title="Create Panoramic"
+        showOnDesktop
+      >
+        <div className="pb-8">
+          <ImageStitcher
+            images={media.sourceUrls}
+            onStitch={handleStitch}
+            isProcessing={generation.isStitching}
+          />
+        </div>
+      </BottomSheet>
+
+      <MediaGalleryModal
+        isOpen={media.showMediaGallery}
+        onClose={() => media.setShowMediaGallery(false)}
+        onSelect={handleGallerySelect}
+      />
+    </>
   );
 };
 

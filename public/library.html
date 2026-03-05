@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChromaDish Library</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0a0a0a; color: #fff; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+    .card { background: #1a1a1a; border-radius: 12px; overflow: hidden; transition: transform 0.2s; }
+    .card:hover { transform: scale(1.02); }
+    .card.selected { ring: 2px solid #10b981; }
+    .upload-zone { border: 2px dashed #333; border-radius: 12px; transition: all 0.2s; }
+    .upload-zone:hover { border-color: #10b981; background: rgba(16, 185, 129, 0.1); }
+  </style>
+</head>
+<body class="min-h-screen p-8">
+  <div class="max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-8">
+      <div>
+        <h1 class="text-3xl font-bold">🍽️ ChromaDish Library</h1>
+        <p class="text-gray-400">Upload and manage your food images</p>
+      </div>
+      <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" 
+        class="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-6 py-3 rounded-xl">
+        + Upload Image
+      </button>
+    </div>
+
+    <!-- Upload Zone -->
+    <div class="upload-zone p-8 mb-8 text-center cursor-pointer" onclick="document.getElementById('fileInput').click()">
+      <input type="file" id="fileInput" class="hidden" accept="image/*" multiple onchange="handleUpload(this.files)">
+      <p class="text-xl">Drop images here or click to upload</p>
+      <p class="text-gray-500 text-sm mt-2">Supports JPG, PNG, WebP, AVIF</p>
+    </div>
+
+    <!-- Filter -->
+    <div class="flex gap-4 mb-6">
+      <button onclick="loadLibrary()" class="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700">All</button>
+      <span class="text-gray-500 py-2" id="imageCount"></span>
+    </div>
+
+    <!-- Image Grid -->
+    <div id="imageGrid" class="grid">
+      <!-- Images loaded dynamically -->
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="text-center py-12">
+      <div class="animate-spin text-4xl">⏳</div>
+      <p class="text-gray-400 mt-4">Loading library...</p>
+    </div>
+  </div>
+
+  <!-- Upload Modal -->
+  <div id="uploadModal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center z-50">
+    <div class="bg-gray-900 p-8 rounded-2xl max-w-md w-full">
+      <h2 class="text-xl font-bold mb-4">Upload Images</h2>
+      <div class="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center cursor-pointer"
+           onclick="document.getElementById('modalFileInput').click()">
+        <input type="file" id="modalFileInput" class="hidden" accept="image/*" multiple onchange="handleUpload(this.files)">
+        <p>Click to select files</p>
+      </div>
+      <div class="flex gap-4 mt-6">
+        <button onclick="document.getElementById('uploadModal').classList.add('hidden')" 
+          class="flex-1 py-3 rounded-xl bg-gray-800">Cancel</button>
+      <button onclick="uploadSelected()" class="flex-1 py-3 rounded-xl bg-emerald-500 text-black font-bold">
+        Upload
+      </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generate Modal -->
+  <div id="generateModal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center z-50">
+    <div class="bg-gray-900 p-8 rounded-2xl max-w-lg w-full">
+      <h2 class="text-xl font-bold mb-4">Generate from Image</h2>
+      <img id="selectedImage" class="w-full h-48 object-cover rounded-xl mb-4">
+      
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">Quality</label>
+          <select id="quality" class="w-full bg-gray-800 rounded-lg px-4 py-2">
+            <option value="draft">Draft (Fast)</option>
+            <option value="standard" selected>Standard</option>
+            <option value="franchise">Franchise (Best)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">Strictness</label>
+          <input type="range" id="strictness" min="0" max="100" value="85" class="w-full">
+          <div class="flex justify-between text-xs text-gray-500">
+            <span>Creative</span>
+            <span>85</span>
+            <span>Strict</span>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">Preset</label>
+          <select id="preset" class="w-full bg-gray-800 rounded-lg px-4 py-2">
+            <option value="">Custom</option>
+            <option value="menu-hero">Menu Hero</option>
+            <option value="social-vertical">Social Vertical</option>
+            <option value="ecomm-white">E-Comm White</option>
+            <option value="lifestyle">Lifestyle</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex gap-4 mt-6">
+        <button onclick="document.getElementById('generateModal').classList.add('hidden')" 
+          class="flex-1 py-3 rounded-xl bg-gray-800">Cancel</button>
+        <button onclick="generateFromLibrary()" class="flex-1 py-3 rounded-xl bg-emerald-500 text-black font-bold">
+          Generate
+        </button>
+      </div>
+      
+      <div id="generateResult" class="mt-4 hidden">
+        <img id="resultImage" class="w-full rounded-xl">
+        <a id="downloadLink" href="#" download class="block text-center mt-4 text-emerald-400">Download Result</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let selectedFiles = [];
+    let currentImageId = null;
+
+    // Load library on start
+    loadLibrary();
+
+    async function loadLibrary() {
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('imageGrid').innerHTML = '';
+      
+      try {
+        const res = await fetch('/api/library');
+        const data = await res.json();
+        
+        document.getElementById('imageCount').textContent = `${data.total} images`;
+        
+        for (const img of data.images) {
+          const card = document.createElement('div');
+          card.className = 'card cursor-pointer';
+          card.innerHTML = `
+            <img src="${img.url}" class="w-full h-48 object-cover">
+            <div class="p-3">
+              <p class="text-sm text-gray-400 truncate">${img.filename}</p>
+              <p class="text-xs text-gray-600">${formatSize(img.size)}</p>
+              <div class="flex gap-2 mt-3">
+                <button onclick="selectImage('${img.id}', '${img.url}')" 
+                  class="flex-1 bg-emerald-500/20 text-emerald-400 py-2 rounded-lg text-sm hover:bg-emerald-500/30">
+                  Select
+                </button>
+                <button onclick="deleteImage('${img.id}')" 
+                  class="bg-red-500/20 text-red-400 px-3 rounded-lg text-sm hover:bg-red-500/30">
+                  ✕
+                </button>
+              </div>
+            </div>
+          `;
+          document.getElementById('imageGrid').appendChild(card);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      
+      document.getElementById('loading').classList.add('hidden');
+    }
+
+    function handleUpload(files) {
+      selectedFiles = Array.from(files);
+      document.getElementById('uploadModal').classList.add('hidden');
+      uploadSelected();
+    }
+
+    async function uploadSelected() {
+      for (const file of selectedFiles) {
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        try {
+          await fetch('/api/library', { method: 'POST', body: formData });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      
+      selectedFiles = [];
+      loadLibrary();
+    }
+
+    function selectImage(id, url) {
+      currentImageId = id;
+      document.getElementById('selectedImage').src = url;
+      document.getElementById('generateModal').classList.remove('hidden');
+      document.getElementById('generateResult').classList.add('hidden');
+    }
+
+    async function generateFromLibrary() {
+      const quality = document.getElementById('quality').value;
+      const strictness = document.getElementById('strictness').value;
+      const preset = document.getElementById('preset').value;
+      
+      try {
+        const res = await fetch('/api/generate-from-library', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            libraryId: currentImageId,
+            quality,
+            strictness,
+            preset
+          })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          document.getElementById('resultImage').src = data.image;
+          document.getElementById('downloadLink').href = data.image;
+          document.getElementById('generateResult').classList.remove('hidden');
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (e) {
+        alert('Generation failed');
+      }
+    }
+
+    async function deleteImage(id) {
+      if (!confirm('Delete this image?')) return;
+      
+      try {
+        await fetch(`/api/library/${id}`, { method: 'DELETE' });
+        loadLibrary();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+      return (bytes/(1024*1024)).toFixed(1) + ' MB';
+    }
+  </script>
+</body>
+</html>

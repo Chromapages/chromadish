@@ -15,7 +15,7 @@ interface SegmentedControlProps {
 
 const SegmentedControl: React.FC<SegmentedControlProps> = ({ options, value, onChange, className }) => {
   return (
-    <div className={cn("flex p-1 bg-black/40 rounded-xl ring-1 ring-white/5", className)}>
+    <div className={cn("flex p-1.5 bg-neutral-950/50 rounded-xl border border-white/5", className)}>
       {options.map((option) => {
         const isActive = option.value === value;
         return (
@@ -23,10 +23,10 @@ const SegmentedControl: React.FC<SegmentedControlProps> = ({ options, value, onC
             key={option.value}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all",
+              "flex-1 py-2 text-[12px] font-bold rounded-lg transition-all duration-300 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50",
               isActive
-                ? "bg-neutral-800 text-neutral-50 shadow-sm shadow-black/50 ring-1 ring-white/10"
-                : "text-neutral-500 hover:text-neutral-300"
+                ? "bg-neutral-800 text-white shadow-[0_2px_8px_rgba(0,0,0,0.5)] border border-white/10"
+                : "text-neutral-500 hover:text-neutral-300 hover:bg-white/[0.02]"
             )}
           >
             {option.label}
