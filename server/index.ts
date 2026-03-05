@@ -36,20 +36,6 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.get('/', (req, res) => {
-  res.json({
-    name: 'ChromaDish API',
-    version: '2.0.0',
-    endpoints: {
-      health: '/health',
-      generate: 'POST /api/generate',
-      jobs: 'GET /api/jobs/:id',
-      batch: 'POST /api/batch-variants',
-      presets: 'GET /api/presets'
-    }
-  });
-});
-
 // Routes
 app.post('/api/generate', upload.single('image'), validateRequest(generateSchema), createGenerationJob);
 app.get('/api/jobs/:id', getJobStatus);

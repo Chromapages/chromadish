@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChromaDish API Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .method-get { color: #34d399; background: rgba(52, 211, 153, 0.1); }
+        .method-post { color: #60a5fa; background: rgba(96, 165, 250, 0.1); }
+    </style>
+</head>
+<body class="min-h-screen p-6 md:p-12 bg-slate-950 text-slate-200">
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-12 text-center md:text-left">
+            <h1 class="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-cyan-400 mb-4">ChromaDish API</h1>
+            <p class="text-slate-400 text-lg">AI-powered food imagery and manipulation backend.</p>
+        </header>
+
+        <section class="glass rounded-2xl p-6 md:p-8 mb-8 shadow-2xl">
+            <h2 class="text-2xl font-semibold text-white mb-6 border-b border-slate-700 pb-2">README & Overview</h2>
+            <p class="text-slate-300 leading-relaxed mb-4">
+                This backend runs an Express.js server providing programmatic access to Google's Gemini Flash AI alongside Supabase storage for long-running image generation tasks. 
+            </p>
+            <p class="text-slate-300 leading-relaxed">
+                By default, this server hosts the API for ChromaDish on port <code class="bg-slate-800 text-emerald-400 px-2 py-1 rounded text-sm">3005</code>.
+                Below is a comprehensive list of all exposed endpoints, their required payloads, and behaviors.
+            </p>
+        </section>
+
+        <section class="space-y-6">
+            <h2 class="text-2xl font-semibold text-white mb-4">Endpoints</h2>
+
+            <!-- Health Check -->
+            <div class="glass rounded-xl p-5 border border-slate-800 hover:border-slate-600 transition-colors">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="method-get text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">GET</span>
+                    <h3 class="text-lg font-medium text-white">/health</h3>
+                </div>
+                <p class="text-slate-400 text-sm mb-3">Returns the operational status of the API.</p>
+                <div class="bg-slate-900 rounded p-3 text-sm text-cyan-300 font-mono">
+                    { "status": "ok", "timestamp": "2026-03-05T..." }
+                </div>
+            </div>
+
+            <!-- Single Generation -->
+            <div class="glass rounded-xl p-5 border border-slate-800 hover:border-slate-600 transition-colors">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="method-post text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">POST</span>
+                    <h3 class="text-lg font-medium text-white">/api/generate</h3>
+                </div>
+                <p class="text-slate-400 text-sm mb-3">Submits a request to generate a single food mockup from a provided image.</p>
+                <h4 class="text-white text-sm font-semibold mb-2">Payload (multipart/form-data):</h4>
+                <ul class="list-disc list-inside text-sm text-slate-300 mb-4">
+                    <li><code class="text-emerald-300">image</code>: The source food photo file.</li>
+                    <li><code class="text-emerald-300">targetDesign</code>: Instruction string for how to rebuild/mockup the food.</li>
+                    <li><code class="text-emerald-300">additionalRequirements</code> (Optional): Extra visual constraints.</li>
+                </ul>
+                <div class="bg-slate-900 rounded p-3 text-sm text-cyan-300 font-mono">
+                    Returns: { "jobId": "..." }
+                </div>
+            </div>
+
+            <!-- Check Job Status -->
+            <div class="glass rounded-xl p-5 border border-slate-800 hover:border-slate-600 transition-colors">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="method-get text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">GET</span>
+                    <h3 class="text-lg font-medium text-white">/api/jobs/:id</h3>
+                </div>
+                <p class="text-slate-400 text-sm mb-3">Polls the status of a specific background generation job.</p>
+                <div class="bg-slate-900 rounded p-3 text-sm text-cyan-300 font-mono overflow-x-auto">
+                    Returns: { "status": "processing" | "completed" | "failed", "result_url"?: "...", "error"?: "..." }
+                </div>
+            </div>
+
+            <!-- Batch Variants -->
+            <div class="glass rounded-xl p-5 border border-slate-800 hover:border-slate-600 transition-colors">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="method-post text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">POST</span>
+                    <h3 class="text-lg font-medium text-white">/api/batch-variants</h3>
+                </div>
+                <p class="text-slate-400 text-sm mb-3">Concurrently generates multiple styling variants off a single source image.</p>
+                <h4 class="text-white text-sm font-semibold mb-2">Payload (multipart/form-data):</h4>
+                <ul class="list-disc list-inside text-sm text-slate-300 mb-4">
+                    <li><code class="text-emerald-300">image</code>: The source food photo file.</li>
+                    <li><code class="text-emerald-300">targetDesign</code>: Base instruction for layout/content.</li>
+                    <li><code class="text-emerald-300">variants</code>: JSON array of strings defining variant conditions (e.g., ["dark mode", "lunch special"]).</li>
+                </ul>
+                <div class="bg-slate-900 rounded p-3 text-sm text-cyan-300 font-mono overflow-x-auto">
+                    Returns: { "jobId": "..." } # A master job encapsulating child variant jobs.
+                </div>
+            </div>
+
+            <!-- Get Presets -->
+            <div class="glass rounded-xl p-5 border border-slate-800 hover:border-slate-600 transition-colors">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="method-get text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">GET</span>
+                    <h3 class="text-lg font-medium text-white">/api/presets</h3>
+                </div>
+                <p class="text-slate-400 text-sm mb-3">Fetches standard styling presets available for menu items.</p>
+            </div>
+            
+            <!-- Library -->
+            <div class="glass rounded-xl p-5 border border-slate-800 hover:border-slate-600 transition-colors">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="method-get text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">GET</span>
+                    <h3 class="text-lg font-medium text-white">/library</h3>
+                </div>
+                <p class="text-slate-400 text-sm mb-3">Serves the independent media gallery HTML interface for managing generated pictures.</p>
+            </div>
+
+        </section>
+        
+        <footer class="mt-16 text-center text-slate-500 text-sm">
+            Powered by ChromaDish Backend &bull; Automated Deployment on Hostinger VPS
+        </footer>
+    </div>
+</body>
+</html>
