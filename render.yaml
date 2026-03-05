@@ -1,18 +1,8 @@
-services:
-  # Backend API (Express + Gemini)
-  - type: web
-    name: chromadish-backend
-    env: node
-    plan: starter
-    buildCommand: npm install && npm run build:server
-    startCommand: npm run start:server
-    envVars:
-      - key: NODE_VERSION
-        value: 20
-      - key: GEMINI_API_KEY
-        sync: false
+# Render Blueprint for Frontend-only deployment
+# The backend is hosted on Hostinger VPS
 
-  # Frontend (Vite React Static Site)
+services:
+  # Frontend Static Site
   - type: web
     name: chromadish-frontend
     env: static
@@ -20,10 +10,8 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: chromadish-backend
-          property: host
+        sync: false
+        # When deploying, set this to your VPS backend URL (e.g., https://api.yourdomain.com)
       - key: VITE_SUPABASE_URL
         sync: false
       - key: VITE_SUPABASE_ANON_KEY
