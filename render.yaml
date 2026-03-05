@@ -20,10 +20,8 @@ services:
       - key: VITE_SUPABASE_ANON_KEY
         sync: false
 
-  # Frontend Static Site
-  - type: static_site
-    name: chromadish-frontend
-    env: static
+static_sites:
+  - name: chromadish-frontend
     buildCommand: npm install && npm run build
     staticPublishDir: dist
     envVars:
