@@ -18,12 +18,18 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Static files
-app.use(express.static('public'));
+app.use(express.static(path.join(process.cwd(), 'public')));
+
+// API Documentation/Readme
+app.get('/', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
+});
 
 // Library UI page
 app.get('/library', (req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'library.html'));
 });
+
 
 // Configure multer
 const upload = multer({
